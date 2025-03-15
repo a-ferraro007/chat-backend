@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { SignInDto, SignUpDto } from '../auth/auth.dto'
+import { SignInDto, SignUpDto } from '../dtos/auth.dto'
 import { findUser, insertUser } from 'src/db/queries'
 import { hashPwd } from 'src/db/utils'
 

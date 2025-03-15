@@ -6,11 +6,11 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common'
-import { AuthService } from './auth.service'
-import { SignInDto, SignUpDto } from './auth.dto'
-import { Public } from './auth.guard'
+import { AuthService } from '../services/auth.service'
+import { SignInDto, SignUpDto } from '../dtos/auth.dto'
+import { Public } from '../guards/auth.guard'
 
-@Controller('auth')
+@Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

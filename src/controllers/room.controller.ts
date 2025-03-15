@@ -7,8 +7,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common'
-import { RoomService } from './room.service'
-import { CreateRoomDto, AddUserToRoomDto } from './rooms.dto'
+import { RoomService } from '../services/room.service'
+import { CreateRoomDto, JoinRoomDto } from '../dtos/rooms.dto'
 
 @Controller('rooms')
 export class RoomController {
@@ -23,7 +23,7 @@ export class RoomController {
   @HttpCode(HttpStatus.OK)
   @Get('/getById')
   async getById(@Query('id') id: string) {
-    return this.roomService.getRoomById(id)
+    return this.roomService.getRoomById({ roomId: id } as JoinRoomDto)
   }
 
   @HttpCode(HttpStatus.OK)
@@ -34,13 +34,13 @@ export class RoomController {
 
   @HttpCode(HttpStatus.OK)
   @Post('/addUser')
-  async addUserToRoom(@Body() addUserToRoomDto: AddUserToRoomDto) {
-    return this.roomService.addUserToRoom(addUserToRoomDto)
+  async addUserToRoom(@Body() addUserToRoomDto: JoinRoomDto) {
+    return this.roomService.addUserToRoom('', addUserToRoomDto)
   }
 
-  @HttpCode(HttpStatus.OK)
-  @Get('/getAllUsers')
-  async getAllUsersInRoom(@Query('id') id: string) {
-    return this.roomService.getAllUsersInRoom(id)
-  }
+  // @HttpCode(HttpStatus.OK)
+  // @Get('/getAllUsers')
+  // async getAllUsersInRoom(@Query('id') id: string) {
+  //   // return this.roomService.getAllUsersInRoom(id)
+  // }
 }

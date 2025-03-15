@@ -5,13 +5,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { jwtConstants } from './constants'
+import { jwtConstants } from '../constants'
 import { Request } from 'express'
 import { SetMetadata } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 
-type Payload = {
-  sub: string
+export type Payload = {
+  id: string
   username: string
   iat: number
   exp: number
@@ -42,8 +42,7 @@ export class AuthGuard implements CanActivate {
       const payload: Payload = await this.jwtService.verifyAsync(token, {
         secret: jwtConstants.secret,
       })
-      console.log(payload)
-
+      console.log({ payload })
       req['user'] = payload
     } catch {
       throw new UnauthorizedException()

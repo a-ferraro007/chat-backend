@@ -97,6 +97,14 @@ async function insertConnectedUser(userId: string, socketId: string) {
   return result as QueryResult<Connected_User>
 }
 
+async function deleteUsersFromRoom(userIds: string[], roomId: string) {
+  await pool.query(
+    'DELETE FROM user_rooms WHERE user_id = ANY($1) AND room_id = $2',
+    [userIds, roomId],
+  )
+  return true
+}
+
 async function deleteConnectedUser(socketId: string) {
   const result = await pool.query(
     'DELETE FROM connected_users WHERE socket_id = $1 RETURNING *',
@@ -141,6 +149,7 @@ export {
   insertIntoMessage,
   insertUserIntoRoom,
   insertConnectedUser,
+  deleteUsersFromRoom,
   deleteConnectedUser,
   deleteAllConnectedUsers,
   getAllConnectedUsersInRoom,

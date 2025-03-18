@@ -5,7 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Res,
 } from '@nestjs/common'
+import { Response } from 'express'
 import { AuthService } from '../services/auth.service'
 import { SignInDto, SignUpDto } from '../dtos/auth.dto'
 import { Public } from '../guards/auth.guard'
@@ -17,19 +19,36 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Public()
   @Post('/signIn')
-  async signIn(@Body() signInDto: SignInDto) {
-    return await this.authService.signIn(signInDto)
+  async signIn(
+    @Res({ passthrough: true }) res: Response,
+    @Body() signInDto: SignInDto,
+  ) {
+    const { accessToken, refreshToken } =
+      await this.authService.signIn(signInDto)
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+    })
+    return { accessToken }
   }
 
   @HttpCode(HttpStatus.OK)
   @Public()
   @Post('/signUp')
-  async signUp(@Body() signUpDto: SignUpDto) {
-    return await this.authService.signUp(signUpDto)
-  }
+  async signUp(
+    @Res({ passthrough: true }) res: Response,
+    @Body() signUpDto: SignUpDto,
+  ) {
+    const { accessToken, refreshToken } =
+      await this.authService.signUp(signUpDto)
 
-  @Get('/test')
-  test() {
-    return 'true'
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+    })
+    return { accessToken }
   }
 }

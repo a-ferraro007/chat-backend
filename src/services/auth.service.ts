@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common'
 import { UserService } from 'src/services/user.service'
 import { JwtService } from '@nestjs/jwt'
+import { jwtConstants } from 'src/constants'
 
 @Injectable()
 export class AuthService {
@@ -23,10 +24,16 @@ export class AuthService {
       if (!(await validatePwd(signInDto.password, passhash))) {
         throw new UnauthorizedException()
       }
-      const payload = { id, username }
 
       return {
-        accessToken: await this.jwtService.signAsync(payload),
+        accessToken: await this.jwtService.signAsync({ id, username }),
+        refreshToken: await this.jwtService.signAsync(
+          { id, username },
+          {
+            secret: jwtConstants.refreshSecret,
+            expiresIn: '30d',
+          },
+        ),
       }
     } catch (error: unknown) {
       if (error instanceof Error && error.message !== 'Unauthorized') {
@@ -37,9 +44,17 @@ export class AuthService {
 
   async signUp(signUpDto: SignUpDto) {
     try {
-      // const user =
-      await this.userService.createUser(signUpDto)
-      return true
+      const { id, username } = await this.userService.createUser(signUpDto)
+      return {
+        accessToken: await this.jwtService.signAsync({ id, username }),
+        refreshToken: await this.jwtService.signAsync(
+          { id, username },
+          {
+            secret: jwtConstants.refreshSecret,
+            expiresIn: '30d',
+          },
+        ),
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         throw error

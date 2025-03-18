@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common'
-import { JoinRoomDto, CreateRoomDto } from '../dtos/rooms.dto'
 import {
+  JoinRoomDto,
+  CreateRoomDto,
+  RemoveFromRoomDto,
+} from '../dtos/rooms.dto'
+import {
+  deleteUsersFromRoom,
   findAllRooms,
   findAllUsersInRoom,
   findRoomById,
@@ -35,6 +40,11 @@ export class RoomService {
     return (await insertUserIntoRoom(roomId, userId)).rows
   }
 
+  async removeUsersFromRoom(removeFromRoomDto: RemoveFromRoomDto) {
+    const { users, roomId } = removeFromRoomDto
+    return await deleteUsersFromRoom(users, roomId)
+  }
+
   async getAllUsersInRoom({
     userId,
     roomId,
@@ -42,9 +52,12 @@ export class RoomService {
     userId: string
     roomId: string
   }) {
-    const res = await findAllUsersInRoom(roomId)
-    const isInRoom = res.rows.some(({ id }) => id === userId)
-    if (!isInRoom) throw new WsException('user is not in room')
-    return (await findAllUsersInRoom(roomId)).rows
+    const res = (await findAllUsersInRoom(roomId)).rows
+    const isInRoom = res.some(({ id }) => id === userId)
+    if (!isInRoom) {
+      console.error(`User ${userId} not found in Room ${roomId}`)
+      throw new WsException({ message: 'User is not room' })
+    }
+    return res
   }
 }

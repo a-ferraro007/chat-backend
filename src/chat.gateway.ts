@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
+  BaseWsExceptionFilter,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -14,7 +15,11 @@ import { JwtService } from '@nestjs/jwt'
 import {
   ExecutionContext,
   createParamDecorator,
-  UnauthorizedException,
+  // UnauthorizedException,
+  Catch,
+  HttpException,
+  ArgumentsHost,
+  UseFilters,
 } from '@nestjs/common'
 import { jwtConstants } from './constants'
 import { Payload } from './guards/auth.guard'
@@ -29,10 +34,40 @@ const WsUser = createParamDecorator(
   },
 )
 
+@Catch(WsException, HttpException)
+export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
+  catch(exception: WsException | HttpException, host: ArgumentsHost): void {
+    const ws = host.switchToWs()
+    const socket = ws.getClient<Socket>()
+    const data = ws.getData<{
+      message: undefined | string
+      id: string
+      rid: string
+    }>()
+    const error =
+      exception instanceof WsException
+        ? exception.getError()
+        : exception.getResponse()
+    const details = error instanceof Object ? { ...error } : { message: error }
+
+    socket.send(
+      JSON.stringify({
+        event: 'error',
+        data: {
+          id: socket.id,
+          rid: data.rid,
+          ...details,
+        },
+      }),
+    )
+  }
+}
+
 @WebSocketGateway({
   cors: { origin: '*' },
   transports: ['websocket'],
 })
+@UseFilters(WebsocketExceptionsFilter)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server
 
@@ -104,9 +139,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     const { id: userId } = currentUser
     const { roomId, message } = data
-    // create message in message service
-    // save message in DB
-    // return message from DB by roomID
 
     try {
       const connectedUsers =
@@ -130,26 +162,46 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           created_on: '',
         })
 
-      const emitPromises = connectedUsers
-        .filter(({ user_id }) => user_id !== userId)
-        .map(({ socket_id }: Connected_User) => {
-          return {
-            socketId: socket_id,
-            promise: new Promise<void>((resolve, reject) => {
-              this.server
-                .to(socket_id)
-                .emit('message', createdMessageText, (response: any) => {
-                  if (response && response.error) {
-                    reject(new Error(response.error))
-                  } else resolve()
-                })
-            }),
-          }
-        })
-
-      await Promise.allSettled(emitPromises.map(({ promise }) => promise))
+      await Promise.allSettled(
+        connectedUsers
+          .filter(({ user_id }) => user_id !== userId)
+          .map(({ socket_id }: Connected_User) => {
+            return {
+              socketId: socket_id,
+              promise: new Promise<void>((resolve, reject) => {
+                this.server
+                  .to(socket_id)
+                  .emit('message', createdMessageText, (response: any) => {
+                    if (response && response.error) {
+                      reject(new Error(response.error as string))
+                    } else resolve()
+                  })
+              }),
+            }
+          })
+          .map((e) => e.promise),
+      )
     } catch (error) {
       console.error(error)
+    }
+  }
+
+  @SubscribeMessage('leaveRoom')
+  async handleLeaveRoom(
+    @WsUser() currentUser: User,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const { roomId } = data
+    try {
+      await this.roomService.removeUsersFromRoom({
+        roomId: roomId,
+        users: [currentUser.id],
+      })
+    } catch (error) {
+      console.error(
+        `Error leaving roomId: ${roomId} for userId: ${currentUser.id}`,
+        error,
+      )
     }
   }
 
@@ -175,10 +227,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       if (!token) throw new Error()
       return await this.jwtService.verifyAsync(token, {
-        secret: jwtConstants.secret,
+        secret: jwtConstants.accessSecret,
       })
     } catch {
-      throw new UnauthorizedException()
+      throw new WsException({ message: 'Unauthorized' })
     }
   }
 

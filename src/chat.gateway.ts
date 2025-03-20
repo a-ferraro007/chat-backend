@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   BaseWsExceptionFilter,
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -15,11 +16,9 @@ import { JwtService } from '@nestjs/jwt'
 import {
   ExecutionContext,
   createParamDecorator,
-  // UnauthorizedException,
   Catch,
   HttpException,
   ArgumentsHost,
-  UseFilters,
 } from '@nestjs/common'
 import { jwtConstants } from './constants'
 import { Payload } from './guards/auth.guard'
@@ -30,7 +29,9 @@ import { MessageService } from './services/message.service'
 
 const WsUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
-    return context.switchToWs().getClient().data.user as User
+    const socket = context.switchToWs().getClient<Socket>()
+
+    return socket.data.user as User
   },
 )
 
@@ -50,9 +51,10 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
         : exception.getResponse()
     const details = error instanceof Object ? { ...error } : { message: error }
 
-    socket.send(
+    socket.emit(
+      'ERROR',
       JSON.stringify({
-        event: 'error',
+        message: 'error',
         data: {
           id: socket.id,
           rid: data.rid,
@@ -64,10 +66,9 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
 }
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { origin: '*', credentials: true },
   transports: ['websocket'],
 })
-@UseFilters(WebsocketExceptionsFilter)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server
 
@@ -79,17 +80,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async onModuleInit() {
-    console.log('ChatGateway Module initialized')
     await this.connectedUserService.deleteAll()
   }
 
   async handleConnection(socket: Socket) {
-    const payload = await this.authorizeSocket(socket)
-    await this.initializeConnectedUser(payload, socket)
+    try {
+      const payload = await this.authorizeSocket(socket)
+      if (!payload) {
+        throw new Error('Error: JWT Payload')
+      }
+      await this.initializeConnectedUser(payload, socket)
+    } catch (error) {
+      socket.emit('error', { message: 'Invalid authentication token' })
+      socket.disconnect()
+      console.error(error)
+    }
   }
 
   async handleDisconnect(socket: Socket) {
-    console.log(socket.id)
     await this.connectedUserService.delete(socket.id)
   }
 
@@ -97,8 +105,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleCreateRoom(
     @WsUser() currentUser: User,
     @MessageBody() data: CreateRoomDto,
+    @ConnectedSocket() socket: Socket,
   ) {
     try {
+      await this.SocketAuthMiddleware(socket)
       const newRoom = await this.roomService.createRoom({
         name: data.name,
         type: data.type,
@@ -118,8 +128,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinRoom(
     @WsUser() currentUser: User,
     @MessageBody() data: JoinRoomDto,
+    @ConnectedSocket() socket: Socket,
   ) {
     try {
+      await this.SocketAuthMiddleware(socket)
       const room = await this.roomService.getRoomById(data)
       if (room.length === 0) throw new Error()
 
@@ -136,11 +148,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleMessage(
     @WsUser() currentUser: User,
     @MessageBody() data: { roomId: string; message: string },
+    @ConnectedSocket() socket: Socket,
   ): Promise<void> {
-    const { id: userId } = currentUser
-    const { roomId, message } = data
-
     try {
+      await this.SocketAuthMiddleware(socket)
+      const { id: userId } = currentUser
+      const { roomId, message } = data
       const connectedUsers =
         await this.connectedUserService.getConnectedUsersInRoom({
           roomId: roomId,
@@ -182,7 +195,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           .map((e) => e.promise),
       )
     } catch (error) {
-      console.error(error)
+      if (error.message === 'UNAUTHORIZED') {
+        console.log(error.message)
+      }
     }
   }
 
@@ -190,9 +205,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleLeaveRoom(
     @WsUser() currentUser: User,
     @MessageBody() data: { roomId: string },
+    @ConnectedSocket() socket: Socket,
   ) {
     const { roomId } = data
     try {
+      await this.SocketAuthMiddleware(socket)
       await this.roomService.removeUsersFromRoom({
         roomId: roomId,
         users: [currentUser.id],
@@ -205,38 +222,65 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('ping')
-  handlePingMessage() {
-    return {
-      event: 'pong',
-      data: 'Wrong data that will make the test fail',
-    }
-  }
-
-  private extractTokenFromHeader(socket: Socket): string | undefined {
-    const headers = socket.handshake.headers
-    const [type, token] = headers.authorization?.split(' ') ?? [
-      undefined,
-      undefined,
-    ]
-    return type === 'Bearer' ? token : undefined
-  }
-
-  private async authorizeSocket(socket: Socket): Promise<Payload> {
-    const token = this.extractTokenFromHeader(socket)
-    try {
-      if (!token) throw new Error()
-      return await this.jwtService.verifyAsync(token, {
-        secret: jwtConstants.accessSecret,
-      })
-    } catch {
-      throw new WsException({ message: 'Unauthorized' })
-    }
-  }
-
   async initializeConnectedUser(user: Payload, socket: Socket) {
     socket.data.user = user
     await this.connectedUserService.create(user.id, socket.id)
     console.log(`Client connected: ${socket.id} - User ID: ${user.id}`)
+  }
+
+  private extractTokenFromSocket(socket: Socket): {
+    accessToken?: string
+    refreshToken?: string
+  } {
+    const handshakeAuth = ((socket: Socket) => {
+      if (Object.keys(socket.handshake.auth).length <= 0) return undefined
+      return socket.handshake.auth
+    })(socket)
+
+    if (handshakeAuth) {
+      return {
+        accessToken: handshakeAuth.accessToken as string | undefined,
+        refreshToken: handshakeAuth.refreshToken as string | undefined,
+      } as {
+        accessToken: string
+        refreshToken: string
+      }
+    }
+
+    const urlAccessToken = socket.request.url
+      .split('accessToken=')[1]
+      ?.split('&')[0]
+    const urlRefreshToken = socket.request.url
+      .split('refreshToken=')[1]
+      ?.split('&')[0]
+
+    return {
+      accessToken: urlAccessToken,
+      refreshToken: urlRefreshToken,
+    }
+  }
+
+  private async authorizeSocket(socket: Socket): Promise<Payload> {
+    try {
+      const { accessToken } = this.extractTokenFromSocket(socket)
+      if (!accessToken) return undefined
+
+      return await this.jwtService.verifyAsync(accessToken ?? '', {
+        secret: jwtConstants.accessSecret,
+      })
+    } catch (error) {
+      throw new Error(error)
+    }
+  }
+
+  private async SocketAuthMiddleware(socket: Socket) {
+    try {
+      if (!(await this.authorizeSocket(socket))) throw new Error()
+      return true
+    } catch (error) {
+      socket.emit('error', { message: 'Invalid access token' })
+      socket.disconnect()
+      console.error(error)
+    }
   }
 }

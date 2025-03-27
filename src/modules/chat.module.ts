@@ -13,5 +13,6 @@ import { MessageService } from 'src/services/message.service'
     RoomService,
     MessageService,
   ],
+  exports: [ChatGateway],
 })
 export class ChatModule {}

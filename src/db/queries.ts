@@ -129,10 +129,9 @@ async function insertIntoMessage({
   roomId,
   text,
   created_by,
-  // created_on,
 }: CreateMessageDto) {
   const res = await pool.query(
-    'INSERT INTO messages (room_id, text, created_by, created_on) VALUES ($1, $2, $3, CURRENT_DATE) returning *',
+    'INSERT INTO messages (room_id, text, created_by, created_on) VALUES ($1, $2, $3, CURRENT_DATE) RETURNING id, room_id AS "roomId", text, created_by, created_on;',
     [roomId, text, created_by],
   )
   return res as QueryResult<Message>

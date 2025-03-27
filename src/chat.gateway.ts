@@ -25,7 +25,8 @@ import { Payload } from './guards/auth.guard'
 import { Connected_User, User } from './db/queries'
 import { RoomService } from './services/room.service'
 import { CreateRoomDto, JoinRoomDto } from './dtos/rooms.dto'
-import { MessageService } from './services/message.service'
+import { CreateMessageDto, MessageService } from './services/message.service'
+import { KafkaProducerService } from './services/kafka/producer.service'
 
 const WsUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
@@ -71,6 +72,7 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server
+  private readonly kafkaProducer = new KafkaProducerService()
 
   constructor(
     private jwtService: JwtService,
@@ -164,41 +166,51 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       )
 
       if (!isInRoom) {
-        throw new WsException('User is not in room')
+        console.error(`User: ${userId} is not in room: ${roomId}`)
+        throw new WsException(`User: ${userId} is not in room: ${roomId}`)
       }
 
-      const { text: createdMessageText } =
-        await this.messageService.createMessage({
-          roomId,
-          text: message,
-          created_by: userId,
-          created_on: '',
-        })
+      const createdMessage = await this.messageService.createMessage({
+        roomId,
+        text: message,
+        created_by: userId,
+        created_on: '',
+      })
 
-      await Promise.allSettled(
-        connectedUsers
-          .filter(({ user_id }) => user_id !== userId)
-          .map(({ socket_id }: Connected_User) => {
-            return {
-              socketId: socket_id,
-              promise: new Promise<void>((resolve, reject) => {
-                this.server
-                  .to(socket_id)
-                  .emit('message', createdMessageText, (response: any) => {
-                    if (response && response.error) {
-                      reject(new Error(response.error as string))
-                    } else resolve()
-                  })
-              }),
-            }
-          })
-          .map((e) => e.promise),
-      )
+      await this.kafkaProducer.publish(createdMessage)
     } catch (error) {
       if (error.message === 'UNAUTHORIZED') {
         console.log(error.message)
       }
     }
+  }
+
+  async sendMessageToClients(message: string) {
+    const { roomId, text, created_by } = JSON.parse(message) as CreateMessageDto
+    const connectedUsers =
+      await this.connectedUserService.getConnectedUsersInRoom({
+        roomId: roomId,
+      })
+
+    await Promise.allSettled(
+      connectedUsers
+        .filter(({ user_id }) => user_id !== created_by)
+        .map(({ socket_id }: Connected_User) => {
+          return {
+            socketId: socket_id,
+            promise: new Promise<void>((resolve, reject) => {
+              this.server
+                .to(socket_id)
+                .emit('message', text, (response: any) => {
+                  if (response && response.error) {
+                    reject(new Error(response.error as string))
+                  } else resolve()
+                })
+            }),
+          }
+        })
+        .map((e) => e.promise),
+    )
   }
 
   @SubscribeMessage('leaveRoom')

@@ -33,22 +33,3 @@ export class KafkaConsumerService {
     })
   }
 }
-
-// @Client({
-//    transport: Transport.KAFKA,
-//    options: {
-//      client: {
-//        brokers: ['localhost:9092'], // Replace with your Kafka broker address
-//      },
-//      consumer: {
-//        groupId: 'socket-group', // Consumer group ID
-//      },
-//    },
-//  })
-//  client: ClientKafka
-// handleChatMessage(message: any) {
-//    console.log('Received Kafka message:', message)
-
-//    // Emit the message to all WebSocket clients
-//    this.chatGateway.sendMessageToClients(message)
-//  }

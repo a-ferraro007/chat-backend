@@ -1,35 +1,55 @@
 # Use postgres/example user/password credentials
 version: '3.9'
-
+volumes:
+  kafka-data:
+    driver: local
 services:
   broker:
-    image: bitnami/kafka:latest
-    hostname: broker
     container_name: broker
+    image: bitnami/kafka:latest
     ports:
-      - 9092:9092
+      - "9092:9092"
+      - "29092:29092"
     environment:
-       KAFKA_BROKER_ID: 1
-       KAFKA_CFG_NODE_ID: 1
-       KAFKA_PROCESS_ROLES: broker,controller
-       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,CONTROLLER://:9093
-       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
-       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-       KAFKA_NUM_PARTITIONS: 3
-      #  KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      #  KAFKA_LISTENERS: PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
-      #  KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
-      #  KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_BROKER_ID: 0
+      KAFKA_PROCESS_ROLES: broker, controller
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+
+
+
+      #  KAFKA_PROCESS_ROLES: broker,controller
       #  KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      #  KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      #  KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,CONTROLLER://broker:9093
+      #  KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      #  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      #  KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      #  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      #  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      #  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      #  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      #  KAFKA_NUM_PARTITIONS: 1
+
+      #  KAFKA_CLUSTER_ID: "4o7Jk74jSF2U6kdc5cdbHw"
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server=broker:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   db:
+    container_name: db
+    hostname: postgres
     image: postgres
     restart: 'always'
     # set shared memory limit when using docker-compose
@@ -44,6 +64,13 @@ services:
       POSTGRES_DB: chat_db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: pwd
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d chat_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     ports:
       - 5431:5432
 
@@ -52,3 +79,21 @@ services:
     restart: always
     ports:
       - 8080:8080
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    # environment:
+    #   # - PORT=${PORT}
+    #   # - KAFKA_BROKERS=broker:9092
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src

@@ -20,14 +20,15 @@ export class KafkaConsumerService {
       })
       console.log('Subscribed to Kafka topic: chat-messages')
     } catch (error) {
-      console.error('Error starting Kafka Consumer:', error)
+      console.error('Error in Kafka Consumer:', error)
     }
     await this.consumer.run({
       eachMessage: async ({ message }) => {
         try {
+          console.log('message', message.value?.toString())
           await this.chatGateway.sendMessageToClients(message.value?.toString())
         } catch (error) {
-          console.error('Error sending message to clients: ', error)
+          console.error('Error consuming message: ', error)
         }
       },
     })

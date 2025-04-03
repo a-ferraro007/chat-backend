@@ -72,14 +72,16 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server
-  private readonly kafkaProducer = new KafkaProducerService()
+  private readonly kafkaProducer: KafkaProducerService
 
   constructor(
     private jwtService: JwtService,
     private roomService: RoomService,
     private messageService: MessageService,
     private connectedUserService: ConnectedUserService,
-  ) {}
+  ) {
+    this.kafkaProducer = new KafkaProducerService()
+  }
 
   async onModuleInit() {
     await this.connectedUserService.deleteAll()
@@ -201,7 +203,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             promise: new Promise<void>((resolve, reject) => {
               this.server
                 .to(socket_id)
-                .emit('message', text, (response: any) => {
+                .emit('message', 'text', (response: any) => {
                   if (response && response.error) {
                     reject(new Error(response.error as string))
                   } else resolve()

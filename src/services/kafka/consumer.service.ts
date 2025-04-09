@@ -1,12 +1,17 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Injectable } from '@nestjs/common'
 import { Consumer } from 'kafkajs'
 import { ChatGateway } from 'src/chat.gateway'
 import { KafkaService } from './kafka.service'
+import { CreateMessageDto, MessageService } from '../message.service'
 
 @Injectable()
 export class KafkaConsumerService {
   private consumer: Consumer
-  constructor(private readonly chatGateway: ChatGateway) {
+  constructor(
+    private readonly chatGateway: ChatGateway,
+    private messageService: MessageService,
+  ) {
     this.consumer = KafkaService.singleton.consumer
   }
 
@@ -23,12 +28,46 @@ export class KafkaConsumerService {
       console.error('Error in Kafka Consumer:', error)
     }
     await this.consumer.run({
-      eachMessage: async ({ message }) => {
+      eachMessage: async ({ topic, message }) => {
         try {
-          console.log('message', message.value?.toString())
-          await this.chatGateway.sendMessageToClients(message.value?.toString())
+          const parsedMessage = JSON.parse(
+            message.value?.toString(),
+          ) as unknown as CreateMessageDto
+
+          console.log(parsedMessage, topic)
+
+          const createdMessage =
+            await this.messageService.createMessage(parsedMessage)
+          await this.chatGateway.sendMessageToClients(createdMessage)
         } catch (error) {
           console.error('Error consuming message: ', error)
+        }
+      },
+      eachBatch: async ({
+        batch,
+        resolveOffset,
+        heartbeat,
+        commitOffsetsIfNecessary,
+        uncommittedOffsets,
+        isRunning,
+        isStale,
+        pause,
+      }) => {
+        for (const message of batch.messages) {
+          console.log({
+            topic: batch.topic,
+            partition: batch.partition,
+            highWatermark: batch.highWatermark,
+            message: {
+              offset: message.offset,
+              key: message.key.toString(),
+              value: message.value.toString(),
+              headers: message.headers,
+            },
+          })
+
+          resolveOffset(message.offset)
+          await heartbeat()
         }
       },
     })

@@ -172,14 +172,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new WsException(`User: ${userId} is not in room: ${roomId}`)
       }
 
-      const createdMessage = await this.messageService.createMessage({
+      await this.kafkaProducer.publish({
         roomId,
         text: message,
         created_by: userId,
         created_on: '',
       })
-
-      await this.kafkaProducer.publish(createdMessage)
     } catch (error) {
       if (error.message === 'UNAUTHORIZED') {
         console.log(error.message)
@@ -187,8 +185,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  async sendMessageToClients(message: string) {
-    const { roomId, text, created_by } = JSON.parse(message) as CreateMessageDto
+  async sendMessageToClients(message: CreateMessageDto) {
+    const { roomId, text, created_by } = message
     const connectedUsers =
       await this.connectedUserService.getConnectedUsersInRoom({
         roomId: roomId,
@@ -203,7 +201,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             promise: new Promise<void>((resolve, reject) => {
               this.server
                 .to(socket_id)
-                .emit('message', 'text', (response: any) => {
+                .emit('message', text, (response: any) => {
                   if (response && response.error) {
                     reject(new Error(response.error as string))
                   } else resolve()

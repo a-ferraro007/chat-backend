@@ -15,8 +15,8 @@ services:
       KAFKA_CFG_NODE_ID: 1
       KAFKA_CFG_CONTROLLER_BROKER_ID: 0
       KAFKA_PROCESS_ROLES: broker, controller
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
-      KAFKA_CFG_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092, CONTROLLER://localhost:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://0.0.0.0:9092, CONTROLLER://0.0.0.0:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -31,6 +31,8 @@ services:
 
 
   db:
+    container_name: db
+    # hostname: postgres
     image: postgres
     restart: 'always'
     # set shared memory limit when using docker-compose
@@ -61,20 +63,20 @@ services:
     ports:
       - 8080:8080
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: app
-    # environment:
-    #   # - PORT=${PORT}
-    #   # - KAFKA_BROKERS=broker:9092
-    ports:
-      - '3000:3000'
-    depends_on:
-      db:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-    volumes:
-      - ./src:/app/src
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: app
+  #   # environment:
+  #   #   # - PORT=${PORT}
+  #   #   # - KAFKA_BROKERS=broker:9092
+  #   ports:
+  #     - '3000:3000'
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     broker:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./src:/app/src

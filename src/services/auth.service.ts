@@ -1,14 +1,14 @@
 import { SignInDto, SignUpDto } from '../dtos/auth.dto'
-import { validatePwd } from 'src/db/utils'
+import { validatePwd } from '../db/utils'
 import {
   HttpException,
   HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common'
-import { UserService } from 'src/services/user.service'
+import { UserService } from '../services/user.service'
 import { JwtService } from '@nestjs/jwt'
-import { jwtConstants } from 'src/constants'
+import { jwtConstants } from '../constants'
 
 @Injectable()
 export class AuthService {

@@ -19,14 +19,16 @@ import {
   Catch,
   HttpException,
   ArgumentsHost,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common'
 import { jwtConstants } from './constants'
 import { Payload } from './guards/auth.guard'
 import { Connected_User, User } from './db/queries'
 import { RoomService } from './services/room.service'
 import { CreateRoomDto, JoinRoomDto } from './dtos/rooms.dto'
-import { CreateMessageDto, MessageService } from './services/message.service'
 import { KafkaProducerService } from './services/kafka/producer.service'
+import { CreateMessageDto } from './dtos/messages.dto'
 
 const WsUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
@@ -66,6 +68,12 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
   }
 }
 
+@UsePipes(
+  new ValidationPipe({
+    transform: true, // auto-transform payloads to DTO instances
+    whitelist: true, // strip unknown properties
+  }),
+)
 @WebSocketGateway({
   cors: { origin: '*', credentials: true },
   transports: ['websocket'],
@@ -77,7 +85,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private jwtService: JwtService,
     private roomService: RoomService,
-    private messageService: MessageService,
     private connectedUserService: ConnectedUserService,
   ) {
     this.kafkaProducer = new KafkaProducerService()
@@ -116,7 +123,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const newRoom = await this.roomService.createRoom({
         name: data.name,
         type: data.type,
-        users: [],
+        users: data.users,
       })
 
       await this.roomService.addUserToRoom(currentUser.id, {
@@ -185,6 +192,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('leaveRoom')
+  async handleLeaveRoom(
+    @WsUser() currentUser: User,
+    @MessageBody() data: { roomId: string },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    const { roomId } = data
+    try {
+      await this.SocketAuthMiddleware(socket)
+      await this.roomService.removeUsersFromRoom({
+        roomId: roomId,
+        users: [currentUser.id],
+      })
+    } catch (error) {
+      console.error(
+        `Error leaving roomId: ${roomId} for userId: ${currentUser.id}`,
+        error,
+      )
+    }
+  }
+
   async sendMessageToClients(message: CreateMessageDto) {
     const { roomId, text, created_by } = message
     const connectedUsers =
@@ -211,27 +239,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         })
         .map((e) => e.promise),
     )
-  }
-
-  @SubscribeMessage('leaveRoom')
-  async handleLeaveRoom(
-    @WsUser() currentUser: User,
-    @MessageBody() data: { roomId: string },
-    @ConnectedSocket() socket: Socket,
-  ) {
-    const { roomId } = data
-    try {
-      await this.SocketAuthMiddleware(socket)
-      await this.roomService.removeUsersFromRoom({
-        roomId: roomId,
-        users: [currentUser.id],
-      })
-    } catch (error) {
-      console.error(
-        `Error leaving roomId: ${roomId} for userId: ${currentUser.id}`,
-        error,
-      )
-    }
   }
 
   async initializeConnectedUser(user: Payload, socket: Socket) {

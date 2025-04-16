@@ -1,12 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { insertIntoMessage } from 'src/db/queries'
-
-export class CreateMessageDto {
-  roomId: string
-  text: string
-  created_by: string
-  created_on: string
-}
+import { insertIntoMessage } from '../db/queries'
+import { CreateMessageDto } from '../dtos/messages.dto'
 
 @Injectable()
 export class MessageService {

@@ -4,7 +4,7 @@ import {
   insertConnectedUser,
   deleteAllConnectedUsers,
   getAllConnectedUsersInRoom,
-} from 'src/db/queries'
+} from '../db/queries'
 
 @Injectable()
 export class ConnectedUserService {

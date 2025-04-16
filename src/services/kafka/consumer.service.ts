@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Injectable } from '@nestjs/common'
 import { Consumer } from 'kafkajs'
-import { ChatGateway } from 'src/chat.gateway'
+import { ChatGateway } from '../../chat.gateway'
 import { KafkaService } from './kafka.service'
-import { CreateMessageDto, MessageService } from '../message.service'
+import { MessageService } from '../message.service'
+import { CreateMessageDto } from '../../dtos/messages.dto'
 
 @Injectable()
 export class KafkaConsumerService {
@@ -47,11 +48,11 @@ export class KafkaConsumerService {
         batch,
         resolveOffset,
         heartbeat,
-        commitOffsetsIfNecessary,
-        uncommittedOffsets,
-        isRunning,
-        isStale,
-        pause,
+        // commitOffsetsIfNecessary,
+        // uncommittedOffsets,
+        // isRunning,
+        // isStale,
+        // pause,
       }) => {
         for (const message of batch.messages) {
           console.log({

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { KafkaService } from './kafka.service'
 import { Producer } from 'kafkajs'
-import { CreateMessageDto } from '../message.service'
+import { CreateMessageDto } from '../../dtos/messages.dto'
 
 @Injectable()
 export class KafkaProducerService {

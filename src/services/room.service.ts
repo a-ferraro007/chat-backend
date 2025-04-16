@@ -11,7 +11,7 @@ import {
   findRoomById,
   insertIntoRoom,
   insertUserIntoRoom,
-} from 'src/db/queries'
+} from '../db/queries'
 import { WsException } from '@nestjs/websockets'
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { QueryResult } from 'pg'
 import pool from './db'
-import { CreateMessageDto } from 'src/services/message.service'
+import { CreateMessageDto } from '../dtos/messages.dto'
 
 export type User = {
   id: string

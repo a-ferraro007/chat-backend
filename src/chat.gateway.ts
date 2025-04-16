@@ -29,6 +29,11 @@ import { RoomService } from './services/room.service'
 import { CreateRoomDto, JoinRoomDto } from './dtos/rooms.dto'
 import { KafkaProducerService } from './services/kafka/producer.service'
 import { CreateMessageDto } from './dtos/messages.dto'
+const consumer_topics = {
+  CHAT_EVENTS: 'chat-events',
+  ROOM_EVENTS: 'room-events',
+  SYSTEM_NOTIFICATIONS: 'system-notifications',
+} as const
 
 const WsUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
@@ -70,8 +75,8 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
 
 @UsePipes(
   new ValidationPipe({
-    transform: true, // auto-transform payloads to DTO instances
-    whitelist: true, // strip unknown properties
+    transform: true,
+    whitelist: true,
   }),
 )
 @WebSocketGateway({
@@ -120,14 +125,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       await this.SocketAuthMiddleware(socket)
-      const newRoom = await this.roomService.createRoom({
-        name: data.name,
+      await this.kafkaProducer.publish(consumer_topics.ROOM_EVENTS, {
+        action: 'CREATE_ROOM',
+        currentUser,
         type: data.type,
+        name: data.name,
         users: data.users,
-      })
-
-      await this.roomService.addUserToRoom(currentUser.id, {
-        roomId: newRoom[0].id,
       })
     } catch (error) {
       console.error(error.message)
@@ -179,7 +182,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new WsException(`User: ${userId} is not in room: ${roomId}`)
       }
 
-      await this.kafkaProducer.publish({
+      await this.kafkaProducer.publish(consumer_topics.CHAT_EVENTS, {
         roomId,
         text: message,
         created_by: userId,

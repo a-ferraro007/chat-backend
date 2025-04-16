@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { KafkaService } from './kafka.service'
 import { Producer } from 'kafkajs'
 import { CreateMessageDto } from '../../dtos/messages.dto'
+import { ConsumerTopic } from './consumer.service'
+import { CreateRoomDto, JoinRoomDto } from 'src/dtos/rooms.dto'
 
 @Injectable()
 export class KafkaProducerService {
@@ -21,10 +23,13 @@ export class KafkaProducerService {
   }
 
   // Publish a message to the 'chat-messages' Kafka topic
-  async publish(message: CreateMessageDto) {
+  async publish(
+    topic: ConsumerTopic,
+    message: CreateMessageDto | CreateRoomDto | JoinRoomDto,
+  ) {
     console.log('Publishing to Kafka:', message)
     await this.producer.send({
-      topic: 'chat-messages',
+      topic,
       messages: [{ value: JSON.stringify(message) }],
     })
   }

@@ -5,7 +5,9 @@ import {
   IsArray,
   IsIn,
   IsOptional,
+  IsEmpty,
 } from 'class-validator'
+import { User } from 'src/db/queries'
 
 export class CreateRoomDto {
   @IsIn(['PRIVATE', 'GROUP'])
@@ -21,6 +23,13 @@ export class CreateRoomDto {
   @IsString({ each: true })
   @IsAlphanumeric(undefined, { each: true })
   users?: string[] // User[]
+
+  // Refactor this Dto to internal kafka event dto
+  @IsEmpty()
+  action?: string
+
+  @IsEmpty()
+  currentUser?: User
 }
 
 export class JoinRoomDto {

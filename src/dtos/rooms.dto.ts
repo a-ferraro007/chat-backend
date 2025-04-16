@@ -6,6 +6,7 @@ import {
   IsIn,
   IsOptional,
   IsEmpty,
+  IsUUID,
 } from 'class-validator'
 import { User } from 'src/db/queries'
 
@@ -33,9 +34,7 @@ export class CreateRoomDto {
 }
 
 export class JoinRoomDto {
-  @IsString()
-  @IsAlphanumeric()
-  @IsNotEmpty()
+  @IsUUID()
   roomId: string
 
   @IsOptional()
@@ -46,9 +45,7 @@ export class JoinRoomDto {
 }
 
 export class RemoveFromRoomDto {
-  @IsString()
-  @IsAlphanumeric()
-  @IsNotEmpty()
+  @IsUUID()
   roomId: string
 
   @IsOptional()

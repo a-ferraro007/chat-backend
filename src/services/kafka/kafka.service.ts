@@ -17,7 +17,7 @@ export class KafkaService {
     if (KafkaService.instance) return KafkaService.instance
     KafkaService.instance = new KafkaService()
     KafkaService.instance.client = new Kafka({
-      clientId: 'chat-app',
+      clientId: 'chat-backend',
       brokers: ['localhost:9092'],
     })
 

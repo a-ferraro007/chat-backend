@@ -42,6 +42,13 @@ export class JoinRoomDto {
   @IsString({ each: true })
   @IsAlphanumeric(undefined, { each: true })
   users?: string[] // User[]
+
+  // Refactor this Dto to internal kafka event dto
+  @IsEmpty()
+  action?: string
+
+  @IsEmpty()
+  currentUser?: User
 }
 
 export class RemoveFromRoomDto {

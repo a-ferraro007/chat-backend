@@ -133,7 +133,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         users: data.users,
       })
     } catch (error) {
-      console.error(error.message)
+      console.error(
+        `Error publishing event: ${consumer_topics.ROOM_EVENTS} for action: CREATE_ROOM with message:${error.message}`,
+      )
       throw new WsException('Error creating room.')
     }
   }
@@ -146,13 +148,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       await this.SocketAuthMiddleware(socket)
-      const room = await this.roomService.getRoomById(data)
-      if (room.length === 0) throw new Error()
-
-      await this.roomService.addUserToRoom(currentUser.id, data)
+      await this.kafkaProducer.publish(consumer_topics.ROOM_EVENTS, {
+        action: 'JOIN_ROOM',
+        currentUser,
+        roomId: data.roomId,
+        users: data.users,
+      })
     } catch (error) {
       console.error(
-        `Error joining room: ${data.roomId} with message: ${error.message}`,
+        `Error publishing event: ${consumer_topics.ROOM_EVENTS} for action: JOIN_ROOM with message: ${error.message}`,
       )
       throw new WsException(`Error joining room`)
     }

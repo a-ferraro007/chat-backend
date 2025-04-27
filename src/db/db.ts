@@ -1,7 +1,5 @@
 import { Pool } from 'pg'
 
-console.log(process.env.POSTGRES_HOST)
-
 const pool = new Pool({
   host: process.env.POSTGRES_HOST ?? 'localhost',
   user: process.env.POSTGRES_USER ?? 'admin',
@@ -12,12 +10,3 @@ const pool = new Pool({
 })
 
 export default pool
-
-// const pool = new Pool({
-//   host: 'postgres', //process.env.POSTGRES_HOST,
-//   user: 'admin', //process.env.POSTGRES_USER,
-//   password: 'pwd', //process.env.POSTGRES_PASSWORD,
-//   database: 'chat_db', //process.env.POSTGRES_DB,
-//   port: 5432, //process.env.POSTGRES_PORT,
-//   idleTimeoutMillis: 30000,
-// })

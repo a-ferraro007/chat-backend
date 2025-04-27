@@ -18,7 +18,7 @@ export class KafkaService {
     KafkaService.instance = new KafkaService()
     KafkaService.instance.client = new Kafka({
       clientId: 'chat-backend',
-      brokers: ['localhost:9092'],
+      brokers: [`${process.env.KAFKA_BROKER_HOST}:9092`],
     })
 
     KafkaService.instance.producer = KafkaService.instance.client.producer({

@@ -43,6 +43,7 @@ export class KafkaConsumerService {
       await this.consumer.run({
         eachMessage: async ({ topic, message }) => {
           try {
+            console.log('Incoming Consumer Topic: ', topic)
             switch (topic) {
               case consumer_topics.CHAT_EVENTS:
                 await this.handleConsumeChatEvent(message)

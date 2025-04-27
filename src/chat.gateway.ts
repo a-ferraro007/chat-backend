@@ -21,6 +21,7 @@ import {
   ArgumentsHost,
   UsePipes,
   ValidationPipe,
+  UseFilters,
 } from '@nestjs/common'
 import { jwtConstants } from './constants'
 import { Payload } from './guards/auth.guard'
@@ -43,9 +44,9 @@ const WsUser = createParamDecorator(
   },
 )
 
-@Catch(WsException, HttpException)
+@Catch(WsException)
 export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
-  catch(exception: WsException | HttpException, host: ArgumentsHost): void {
+  catch(exception: WsException, host: ArgumentsHost): void {
     const ws = host.switchToWs()
     const socket = ws.getClient<Socket>()
     const data = ws.getData<{
@@ -53,10 +54,7 @@ export class WebsocketExceptionsFilter extends BaseWsExceptionFilter {
       id: string
       rid: string
     }>()
-    const error =
-      exception instanceof WsException
-        ? exception.getError()
-        : exception.getResponse()
+    const error = exception.getError()
     const details = error instanceof Object ? { ...error } : { message: error }
 
     socket.emit(
@@ -295,6 +293,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         secret: jwtConstants.accessSecret,
       })
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       throw new Error(error)
     }
   }

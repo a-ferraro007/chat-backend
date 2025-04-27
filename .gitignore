@@ -400,3 +400,11 @@ dist
 .serverless/**/*.zip
 tmp.sql
 src/constants.ts
+
+=======
+# Terraform
+terraform/*.pem
+terraform/terraform.tfstate
+terraform/terraform.tfstate.*
+terraform/.terraform/*
+terraform/.terraform.lock.hcl

@@ -1,0 +1,29 @@
+version: '3.9'
+volumes:
+  kafka-data:
+    driver: local
+services:
+  broker:
+    container_name: broker
+    image: bitnami/kafka:latest
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_BROKER_ID: 0
+      KAFKA_PROCESS_ROLES: broker, controller
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://3.148.247.51:9092, CONTROLLER://127.0.0.1:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://0.0.0.0:9092, CONTROLLER://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@127.0.0.1:9093
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server=3.148.247.51:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

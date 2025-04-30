@@ -3,18 +3,12 @@ resource "aws_security_group" "security" {
 
   vpc_id = aws_vpc.ec2_env.id
 
-  ingress {
-    cidr_blocks = [
-      "74.108.163.174/32"
-    ]
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-  }
+
+
 
   ingress {
-    cidr_blocks = [
-      "74.108.163.174/32"
+    ipv6_cidr_blocks = [
+      "2a09:8280:1::72:6ef5:0/128",
     ]
     from_port = 9092
     to_port   = 9092

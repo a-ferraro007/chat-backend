@@ -22,7 +22,7 @@ export class KafkaProducerService {
     }
   }
 
-  // Publish a message to the 'chat-messages' Kafka topic
+  // Publish a message to the given Kafka topic
   async publish(
     topic: ConsumerTopic,
     message: CreateMessageDto | CreateRoomDto | JoinRoomDto,

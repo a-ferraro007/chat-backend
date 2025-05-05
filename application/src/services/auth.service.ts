@@ -6,7 +6,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common'
-import { UserService } from '../services/user.service'
+import { UserService } from './user.service'
 import { JwtService } from '@nestjs/jwt'
 import { jwtConstants } from '../constants'
 

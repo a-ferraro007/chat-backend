@@ -1,0 +1,83 @@
+# Use postgres/example user/password credentials
+version: '3.9'
+volumes:
+  kafka-data:
+    driver: local
+services:
+  # broker:
+  #   container_name: broker
+  #   image: bitnami/kafka:latest
+  #   ports:
+  #     - "9092:9092"
+  #     - "29092:29092"
+  #   environment:
+  #     KAFKA_BROKER_ID: 1
+  #     KAFKA_CFG_NODE_ID: 1
+  #     KAFKA_CFG_CONTROLLER_BROKER_ID: 0
+  #     KAFKA_PROCESS_ROLES: broker, controller
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
+  #     KAFKA_CFG_LISTENERS: PLAINTEXT://broker:9092, CONTROLLER://broker:9093
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  #     KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  #     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  #   healthcheck:
+  #     test: ["CMD", "kafka-topics.sh", "--bootstrap-server=broker:9092", "--list"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+
+  # db:
+  #   image: postgres
+  #   restart: 'always'
+  #   # set shared memory limit when using docker-compose
+  #   shm_size: 128mb
+  #   # or set shared memory limit when deploy via swarm stack
+  #   #volumes:
+  #   #  - type: tmpfs
+  #   #    target: /dev/shm
+  #   #    tmpfs:
+  #   #      size: 134217728 # 128*2^20 bytes = 128Mb
+  #   environment:
+  #     POSTGRES_DB: chat_db
+  #     POSTGRES_USER: admin
+  #     POSTGRES_PASSWORD: pwd
+  #   volumes:
+  #     - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U admin -d chat_db"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+  #   ports:
+  #     - 5431:5432
+
+  # adminer:
+    # image: adminer
+    # restart: always
+    # ports:
+    #   - 8080:8080
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      KAFKA_BROKER_HOST: ${KAFKA_BROKER_HOST}
+    ports:
+      - '3000:3000'
+      - '5432:5432'
+    volumes:
+      - ./src:/app/src
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1

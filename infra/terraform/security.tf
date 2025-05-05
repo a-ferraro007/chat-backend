@@ -5,14 +5,18 @@ resource "aws_security_group" "security" {
 
 
 
+  ingress {
+    cidr_blocks = ["10.0.0.0/16"]
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+  }
 
   ingress {
-    ipv6_cidr_blocks = [
-      "2a09:8280:1::72:6ef5:0/128",
-    ]
-    from_port = 9092
-    to_port   = 9092
-    protocol  = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
   }
 
   egress {

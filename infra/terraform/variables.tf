@@ -40,7 +40,7 @@ variable "instance_type" {
 variable "instance_tag" {
   description = "Tag(s) for Instance(s)"
   type        = list(string)
-  default     = ["test-instance"]
+  default     = ["test-instance", "test-instance-2"]
 }
 
 variable "ec2_instance_name" {
@@ -52,7 +52,7 @@ variable "ec2_instance_name" {
 variable "counter" {
   description = "Number of instances to launch"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 #----------------

@@ -1,4 +1,12 @@
+import 'dotenv/config'
 import { Pool } from 'pg'
+console.log(
+  process.env.POSTGRES_HOST,
+  process.env.POSTGRES_PASSWORD,
+  process.env.POSTGRES_USER,
+  process.env.POSTGRES_PORT,
+  process.env.POSTGRES_DB,
+)
 
 const pool = new Pool({
   host: process.env.POSTGRES_HOST ?? 'localhost',

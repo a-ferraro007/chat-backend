@@ -403,8 +403,8 @@ src/constants.ts
 
 =======
 # Terraform
-terraform/*.pem
-terraform/terraform.tfstate
-terraform/terraform.tfstate.*
-terraform/.terraform/*
-terraform/.terraform.lock.hcl
+infra/terraform/*.pem
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.*
+infra/terraform/.terraform/*
+infra/terraform/.terraform.lock.hcl

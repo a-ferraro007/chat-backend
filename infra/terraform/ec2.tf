@@ -35,10 +35,10 @@ data "aws_ami" "amazon_linux_ami" {
 #Ec2 Instance
 resource "aws_instance" "test_env_ec2" {
   count                       = var.counter
-  ami                         = data.aws_ami.amazon_linux_ami.id
+  ami                         = "ami-04f167a56786e4b09" # data.aws_ami.amazon_linux_ami.id
   instance_type               = var.instance_type
   key_name                    = var.key_pair_name
-  security_groups             = ["${aws_security_group.security.id}"]
+  vpc_security_group_ids      = [aws_security_group.security.id]
   associate_public_ip_address = true
   subnet_id                   = aws_subnet.subnet.id
 

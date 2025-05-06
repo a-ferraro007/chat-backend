@@ -17,19 +17,18 @@ import {
   ExecutionContext,
   createParamDecorator,
   Catch,
-  HttpException,
   ArgumentsHost,
   UsePipes,
   ValidationPipe,
-  UseFilters,
 } from '@nestjs/common'
 import { jwtConstants } from './constants'
 import { Payload } from './guards/auth.guard'
-import { Connected_User, User } from './db/queries'
+import { Connected_User, UnauthorizedUser, User } from './db/queries'
 import { RoomService } from './services/room.service'
 import { CreateRoomDto, JoinRoomDto } from './dtos/rooms.dto'
 import { KafkaProducerService } from './services/kafka/producer.service'
 import { CreateMessageDto } from './dtos/messages.dto'
+import { UserService } from './services/user.service'
 const consumer_topics = {
   CHAT_EVENTS: 'chat-events',
   ROOM_EVENTS: 'room-events',
@@ -40,7 +39,7 @@ const WsUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
     const socket = context.switchToWs().getClient<Socket>()
 
-    return socket.data.user as User
+    return socket.data.user as User | UnauthorizedUser
   },
 )
 
@@ -88,6 +87,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private jwtService: JwtService,
     private roomService: RoomService,
+    private userService: UserService,
     private connectedUserService: ConnectedUserService,
   ) {
     this.kafkaProducer = new KafkaProducerService()
@@ -100,10 +100,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(socket: Socket) {
     try {
       const payload = await this.authorizeSocket(socket)
-      if (!payload) {
-        throw new Error('Error: JWT Payload')
+      if (payload) {
+        await this.initializeConnectedUser(payload, socket)
+      } else {
+        console.warn('No JWT payload. Creating Unauthorized User.')
+        const unauthorizedUser = await this.userService.createUnauthorizedUser()
+        await this.initializeConnectedUser(
+          { ...unauthorizedUser, isUnauthorized: false },
+          socket,
+        )
       }
-      await this.initializeConnectedUser(payload, socket)
+      // throw new Error('Error: JWT Payload')
     } catch (error) {
       socket.emit('error', { message: 'Invalid authentication token' })
       socket.disconnect()
@@ -122,7 +129,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() socket: Socket,
   ) {
     try {
-      await this.SocketAuthMiddleware(socket)
+      if (!(await this.SocketAuthMiddleware(socket))) return
       await this.kafkaProducer.publish(consumer_topics.ROOM_EVENTS, {
         action: 'CREATE_ROOM',
         currentUser,
@@ -145,7 +152,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() socket: Socket,
   ) {
     try {
-      await this.SocketAuthMiddleware(socket)
+      if (!(await this.SocketAuthMiddleware(socket))) return
       await this.kafkaProducer.publish(consumer_topics.ROOM_EVENTS, {
         action: 'JOIN_ROOM',
         currentUser,
@@ -167,7 +174,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() socket: Socket,
   ): Promise<void> {
     try {
-      await this.SocketAuthMiddleware(socket)
+      if (!(await this.SocketAuthMiddleware(socket))) return
       const { id: userId } = currentUser
       const { roomId, message } = data
       const connectedUsers =
@@ -205,7 +212,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId } = data
     try {
-      await this.SocketAuthMiddleware(socket)
+      if (!(await this.SocketAuthMiddleware(socket))) return
       await this.roomService.removeUsersFromRoom({
         roomId: roomId,
         users: [currentUser.id],
@@ -246,7 +253,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     )
   }
 
-  async initializeConnectedUser(user: Payload, socket: Socket) {
+  async initializeConnectedUser(
+    user: Payload | UnauthorizedUser,
+    socket: Socket,
+  ) {
     socket.data.user = user
     await this.connectedUserService.create(user.id, socket.id)
     console.log(`Client connected: ${socket.id} - User ID: ${user.id}`)
@@ -307,5 +317,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       socket.disconnect()
       console.error(error)
     }
+    return false
   }
 }

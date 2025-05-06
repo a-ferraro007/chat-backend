@@ -9,6 +9,10 @@ export type User = {
   passhash: string
 }
 
+export type UnauthorizedUser = {
+  isUnauthorized: boolean
+} & Partial<User>
+
 export type Room = {
   id: string
   name: string

@@ -11,7 +11,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe())
   app.useWebSocketAdapter(new IoAdapter(app))
   app.use(cookieParser())
-  await app.listen(3000, '0.0.0.0')
+  await app.listen(process.env.SERVER_PORT || 3000, '0.0.0.0')
   console.log(`Application is running on: ${await app.getUrl()}`)
 }
 bootstrap()
